@@ -24,10 +24,10 @@ private val SolutionTemplate =
         package `template`
 
         fun run_a(input: List<String>): String {
-            TODO()
+            return ""
         }
 
         fun run_b(input: List<String>): String {
-            TODO()
+            return ""
         }
     """.trimIndent()

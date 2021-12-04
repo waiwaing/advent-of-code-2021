@@ -11,6 +11,7 @@ fun main() {
     val day = Clock.System.now().toLocalDateTime(TimeZone.of("America/New_York")).dayOfMonth
 
     createSolutionFolderIfMissing(day)
+    createSolutionFolderIfMissing(day + 1)
 
     println("Day $day")
     println()

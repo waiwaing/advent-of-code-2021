@@ -4,14 +4,12 @@ import `15`.cartesianProduct
 import kotlin.math.ceil
 import kotlin.math.floor
 
-fun run_a(input: List<String>): String {
-    return input.map(::SfNumber).reduce { x, y -> SfNumber("[$x,$y]").reduce() }.magnitude().toString()
-}
+fun run_a(input: List<String>) =
+    input.map(::SfNumber).reduce { x, y -> SfNumber("[$x,$y]").apply { this.reduce() } }.magnitude().toString()
 
-fun run_b(input: List<String>): String {
-    return input.map(::SfNumber).cartesianProduct(input.map(::SfNumber))
-        .maxOf { (x, y) -> SfNumber("[${x},${y}]").reduce().magnitude() }.toString()
-}
+fun run_b(input: List<String>) =
+    input.map(::SfNumber).cartesianProduct(input.map(::SfNumber))
+        .maxOf { (x, y) -> SfNumber("[${x},${y}]").apply { this.reduce() }.magnitude() }.toString()
 
 class SfNumber(var parent: SfNumber?, var left: SfNumber?, var right: SfNumber?, var value: Int?) {
     private var buildStringRemainder: String = ""
@@ -42,20 +40,16 @@ class SfNumber(var parent: SfNumber?, var left: SfNumber?, var right: SfNumber?,
         else -> buildSfNumber(input.substring(1))
     }
 
-    fun reduce(): SfNumber {
+    fun reduce() {
         while (explode(4) || split()) Unit
-        return this
     }
 
     private fun explode(nestsToGo: Int): Boolean = when {
         value != null -> false
         nestsToGo >= 1 -> left!!.explode(nestsToGo - 1) || right!!.explode(nestsToGo - 1)
         else -> {
-            val leftNode = getValueNodeToLeft()
-            val rightNode = getValueNodeToRight()
-
-            if (leftNode != null) leftNode.value = leftNode.value!! + left!!.value!!
-            if (rightNode != null) rightNode.value = rightNode.value!! + right!!.value!!
+            getAdjacentLeafNode(true)?.let { it.value = it.value!! + left!!.value!! }
+            getAdjacentLeafNode(false)?.let { it.value = it.value!! + right!!.value!! }
 
             buildSfNumber("0")
             true
@@ -76,18 +70,12 @@ class SfNumber(var parent: SfNumber?, var left: SfNumber?, var right: SfNumber?,
     private fun getLeftMostChild(): SfNumber = value?.let { this } ?: left!!.getLeftMostChild()
     private fun getRightMostChild(): SfNumber = value?.let { this } ?: right!!.getRightMostChild()
 
-    private fun getValueNodeToLeft(): SfNumber? = when {
+    private fun getAdjacentLeafNode(toLeft: Boolean): SfNumber? = when {
         value != null -> this
         parent == null -> null
-        this == parent?.right -> parent?.left?.getRightMostChild()
-        else -> parent?.getValueNodeToLeft()
-    }
-
-    private fun getValueNodeToRight(): SfNumber? = when {
-        value != null -> this
-        parent == null -> null
-        this == parent?.left -> parent?.right?.getLeftMostChild()
-        else -> parent?.getValueNodeToRight()
+        toLeft && this == parent?.right -> parent?.left?.getRightMostChild()
+        !toLeft && this == parent?.left -> parent?.right?.getLeftMostChild()
+        else -> parent?.getAdjacentLeafNode(toLeft)
     }
 
     override fun toString(): String = value?.toString() ?: "[${left},${right}]"

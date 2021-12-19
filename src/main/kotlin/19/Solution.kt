@@ -6,44 +6,32 @@ import kotlin.math.pow
 
 fun run_a(input: List<String>) = buildMasterBeaconMap(input).first.size.toString()
 
-fun run_b(input: List<String>): String {
-    val (_, scanners) = buildMasterBeaconMap(input)
-    return scanners.cartesianProduct(scanners).maxOf { (a, b) ->
-        abs(a.first - b.first) + abs(a.second - b.second) + abs(a.third - b.third)
-    }.toString()
+fun run_b(input: List<String>) = buildMasterBeaconMap(input).second.let {
+    it.cartesianProduct(it)
+        .maxOf { (a, b) -> abs(a.first - b.first) + abs(a.second - b.second) + abs(a.third - b.third) }
+        .toString()
 }
 
 fun buildMasterBeaconMap(input: List<String>): Pair<Set<Beacon>, Set<Scanner>> {
     val masterBeaconMap = mutableSetOf<Beacon>()
     val scanners = mutableSetOf<Scanner>()
 
-    val unincludedBeaconSets = input.fold(mutableListOf<MutableList<String>>()) { acc, elem ->
-        when {
-            elem == "" -> Unit
-            elem.startsWith("---") -> acc.add(mutableListOf())
-            else -> acc.last().add(elem)
-        }
-        acc
-    }.map(::BeaconSet).toMutableSet()
+    val unincludedBeaconSets = input.joinToString("*").split("**")
+        .map { it.split("*").filterNot { line -> line.startsWith("---") } }
+        .map(::BeaconSet).toMutableSet()
     val includedBeaconSets = mutableListOf(unincludedBeaconSets.first())
 
     masterBeaconMap.addAll(unincludedBeaconSets.first().beacons)
-
     while (includedBeaconSets.isNotEmpty()) {
-        val toProcess = unincludedBeaconSets.filter { includedBeaconSets.first().overlappingBeacons(it).isNotEmpty() }
-
-        if (toProcess.isEmpty()) {
-            includedBeaconSets.removeFirst()
-        } else {
-            toProcess.forEach {
-                val orientedBeaconSet = it.orientateToMap(masterBeaconMap)
+        unincludedBeaconSets.filter { includedBeaconSets.first().overlappingBeacons(it).isNotEmpty() }
+            .onEach {
+                val orientedBeaconSet = it.orientToMap(masterBeaconMap)
                 masterBeaconMap.addAll(orientedBeaconSet.beacons)
-                orientedBeaconSet.scanner?.let { scanners.add(it) }
+                orientedBeaconSet.scanner?.let { scanner -> scanners.add(scanner) }
 
                 unincludedBeaconSets.remove(it)
                 includedBeaconSets.add(it)
-            }
-        }
+            }.let { if (it.isEmpty()) includedBeaconSets.removeFirst() }
     }
 
     return Pair(masterBeaconMap, scanners)
@@ -75,12 +63,10 @@ data class Beacon(val x: Long, val y: Long, val z: Long) {
     override fun toString(): String = "${x},${y},${z}"
 }
 
-fun Iterable<Double>.hasOverlappingDistancesWith(other: Iterable<Double>) =
-    cartesianProduct(other).count { (x, y) -> abs(x - y) < 0.001 } >= 10
+fun Iterable<Double>.overlaps(b: Iterable<Double>) = cartesianProduct(b).count { (x, y) -> abs(x - y) < 0.001 } >= 10
 
-fun Iterable<Beacon>.align(other: Iterable<Beacon>): List<Pair<Beacon, Beacon>> = mapNotNull { beaconA ->
-    other
-        .firstOrNull { beaconB -> beaconA.distances.hasOverlappingDistancesWith(beaconB.distances) }
+fun Sequence<Beacon>.align(b: Iterable<Beacon>) = mapNotNull { beaconA ->
+    b.firstOrNull { beaconB -> beaconA.distances.overlaps(beaconB.distances) }
         .let { if (it == null) null else Pair(beaconA, it) }
 }
 
@@ -89,35 +75,26 @@ class BeaconSet(val input: List<String>, val scanner: Scanner? = null) {
         val (x, y, z) = it.split(",").map(String::toLong)
         Beacon(x + (scanner?.first ?: 0), y + (scanner?.second ?: 0), z + (scanner?.third ?: 0))
     }
+    private val distancesSet by lazy { beacons.map { it.distances }.toSet() }
 
     init {
         beacons.cartesianProduct(beacons).forEach { (a, b) -> a.neighbors.add(Pair(b, a.distanceTo(b))) }
     }
 
-    fun overlappingBeacons(other: BeaconSet): List<Beacon> {
-        val otherDistances = other.beacons.map { it.distances }.toSet()
-        return beacons
-            .filter { beacon -> otherDistances.any { distances -> beacon.distances.hasOverlappingDistancesWith(distances) } }
-            .let { if (it.size >= 12) it else listOf() }
-    }
+    fun overlappingBeacons(other: BeaconSet) = beacons
+        .filter { beacon -> other.distancesSet.any { distances -> beacon.distances.overlaps(distances) } }
+        .let { if (it.size >= 12) it else listOf() }
 
-    fun orientateToMap(map: Set<Beacon>): BeaconSet {
-        val alignments = beacons.align(map)
+    fun orientToMap(map: Set<Beacon>): BeaconSet {
+        val alignments = beacons.asSequence().align(map).take(2).toList()
 
-        val (orientation, scanner) = (0..63).firstNotNullOf {
-            val potential = alignments[0].first.orientation(it)
-            val reference = alignments[0].second
+        val (orientation, scanner) = (0b000000..0b111111).firstNotNullOf {
+            val (newA, refA) = Pair(alignments[0].first.orientation(it), alignments[0].second)
+            val (newB, refB) = Pair(alignments[1].first.orientation(it), alignments[1].second)
+            val scannerA = Scanner(refA.x - newA.x, refA.y - newA.y, refA.z - newA.z)
+            val scannerB = Scanner(refB.x - newB.x, refB.y - newB.y, refB.z - newB.z)
 
-            val scanner = Scanner(reference.x - potential.x, reference.y - potential.y, reference.z - potential.z)
-
-            val check = alignments[1].first.orientation(it)
-            val checkR = alignments[1].second
-
-            if (scanner.first + check.x == checkR.x && scanner.second + check.y == checkR.y && scanner.third + check.z == checkR.z) {
-                Pair(it, scanner)
-            } else {
-                null
-            }
+            if (scannerA == scannerB) Pair(it, scannerA) else null
         }
 
         return BeaconSet(beacons.map { it.orientation(orientation).toString() }, scanner)

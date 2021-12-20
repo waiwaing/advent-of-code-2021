@@ -48,7 +48,6 @@ fun run_b(input: List<String>): String {
     }
 }
 
-
 class Cell(val x: Int, val y: Int, var value: Int)
 
 class Grid(input: List<String>) : Iterable<Cell> {

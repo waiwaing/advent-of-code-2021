@@ -6,6 +6,7 @@ import java.lang.reflect.Modifier
 import kotlin.reflect.KFunction
 import kotlin.reflect.jvm.javaMethod
 import kotlin.reflect.jvm.kotlinFunction
+import kotlin.time.ExperimentalTime
 
 fun main() {
     val day = Clock.System.now().toLocalDateTime(TimeZone.of("America/New_York")).dayOfMonth
@@ -24,7 +25,7 @@ private fun cycle(day: Int, part: String) {
     val methodToRun = getFunctionToRun(day, part)
 
     val testInputText = File("src/main/kotlin/$day/test_input.txt").readLines()
-    val actualTestOutput = methodToRun.call(testInputText).trim()
+    val actualTestOutput = printTimings { methodToRun.call(testInputText).trim() }
 
     val correctTestOutput = File("src/main/kotlin/$day/test_output_$part.txt").readText().trim()
     if (actualTestOutput != correctTestOutput) {
@@ -33,8 +34,16 @@ private fun cycle(day: Int, part: String) {
     }
 
     val inputText = File("src/main/kotlin/$day/input.txt").readLines()
-    val actualOutput = methodToRun.call(inputText).trim()
+    val actualOutput = printTimings { methodToRun.call(inputText).trim() }
     println("Part ${part.uppercase()}: $actualOutput")
+}
+
+@OptIn(ExperimentalTime::class)
+private fun printTimings(method: () -> String) : String {
+    val start = Clock.System.now()
+    return method().also {
+        println("Execution time: ${(Clock.System.now() - start).inWholeMilliseconds} ms")
+    }
 }
 
 private fun getFunctionToRun(day: Int, part: String): KFunction<String> {

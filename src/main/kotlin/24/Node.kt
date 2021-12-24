@@ -13,11 +13,11 @@ data class ConNode(val value: Long) : Node() {
 data class PnMap(val data: Map<Char, Long> = mapOf()) : HashMap<Char, Long>(data) {
     fun merge(other: PnMap) = PnMap((keys + other.keys).associateWith { (this[it] ?: 0) + (other[it] ?: 0) })
     fun multiplyAll(multiplicand: Long) = PnMap(mapValues { it.value * multiplicand })
-    fun divideAll(dividend: Long) = PnMap(mapValues { (input, coefficient) ->
+    fun divideAll(divisor: Long) = PnMap(mapValues { (input, coefficient) ->
         when {
-            coefficient % dividend == 0L -> coefficient / dividend
-            input != ' ' && coefficient * 9 <= dividend -> 0 //
-            input == ' ' -> coefficient / dividend // assumes this is the only non-integer division
+            coefficient % divisor == 0L -> coefficient / divisor
+            input != ' ' && coefficient * 9 <= divisor -> 0
+            input == ' ' -> coefficient / divisor // assumes this is the only non-integer division
             else -> throw Exception(":(")
         }
     })
